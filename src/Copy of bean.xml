@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd
+           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+           http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd">
+
+	<!-- 读取jdbc.properties配置文件 -->
+	<context:property-placeholder location="jdbc.properties" />
+	<!--配置数据源 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="${driverClassName}" />
+		<property name="url" value="${url}" />
+		<property name="username" value="${username}" />
+		<property name="password" value="${password}" />
+		<!-- 连接池启动时的初始值 -->
+		<property name="initialSize" value="${initialSize}" />
+		<!-- 连接池的最大值 -->
+		<property name="maxActive" value="${maxActive}" />
+		<!-- 最大空闲值.当经过一个高峰时间后，连接池可以慢慢将已经用不到的连接慢慢释放一部分，一直减少到maxIdle为止 -->
+		<property name="maxIdle" value="${maxIdle}" />
+		<!-- 最小空闲值.当空闲的连接数少于阀值时，连接池就会预申请去一些连接，以免洪峰来时来不及申请 -->
+		<property name="minIdle" value="${minIdle}" />
+		<!-- 获得连接的最大等待时间 -->
+		<property name="maxWait" value="${maxWait}" />
+		<!-- 连接被泄露时是否打印 -->
+		<property name="logAbandoned" value="${logAbandoned}" />
+		<!-- 连接关闭时是否要清除缓存 -->
+		<property name="removeAbandoned" value="${removeAbandoned}" />
+		<!-- 清空等待时间 -->
+		<property name="removeAbandonedTimeout" value="${removeAbandonedTimeout}" />
+		<!-- 连接检测 -->
+		<property name="validationQuery" value="${validationQuery}" />
+
+	</bean>
+
+	<!-- 这里根据spring的注入原理直接把参数放到ConnectionProvider -->
+	<!-- 到时候通过id就直接调用ConnectionProvider对象 -->
+	<bean id="connectionProvider" class="spring.db.ConnectionProvider">
+		<property name="dataSource">
+			<!-- ref元素用来将容器内其它bean的id传给<constructor-arg/> 或 <property/>元素 -->
+			<!-- 同时提供错误验证功能 -->
+			<ref bean="dataSource" />
+		</property>
+	</bean>
+
+	<!-- 数据库操作类bean -->
+	<bean id="baseService" class="spring.db.impl.BaseServiceImpl">
+		<property name="dataSource">
+			<ref bean="dataSource" />
+		</property>
+	</bean>
+
+	<!-- 配置JDBC事务管理器 -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource">
+			<ref bean="dataSource" />
+		</property>
+	</bean>
+
+	<!-- 配置事件代理工厂 -->
+	<bean id="transactionProxy"
+		class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+		<!-- 要依赖事务管理器 -->
+		<property name="transactionManager">
+			<ref bean="transactionManager" />
+		</property>
+
+		<!-- 接口代理方式 -->
+		<property name="proxyInterfaces">
+			<list>
+				<value>spring.db.Inter.BaseService</value>
+			</list>
+		</property>
+
+		<!-- 要依赖目标对象 -->
+		<property name="target">
+			<ref bean="baseService" />
+		</property>
+
+		<!-- 要依赖代理方式 -->
+		<!-- <property name="proxyTargetClass" value="true"></property> -->
+
+		<!-- 要依赖事务属性 -->
+		<property name="transactionAttributes">
+			<props>
+				<prop key="*">PROPAGATION_REQUIRED</prop>
+				<prop key="query">PROPAGATION_SUPPORTS,readOnly</prop>
+				<prop key="insert">PROPAGATION_REQUIRED</prop>
+				<prop key="delete">PROPAGATION_REQUIRED</prop>
+			</props>
+		</property>
+	</bean>
+
+</beans>
